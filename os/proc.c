@@ -6,11 +6,12 @@
 #include "timer.h"
 
 struct proc pool[NPROC];
-char kstack[NPROC][PAGE_SIZE];
+// char kstack[NPROC][PAGE_SIZE];
+
+//  __attribute__((aligned(4096))) char ustack[NPROC][PAGE_SIZE];
 
 __attribute__((aligned(16))) char kstack[NPROC][PAGE_SIZE];
-__attribute__((aligned(4096))) char ustack[NPROC][PAGE_SIZE];
-__attribute__((aligned(4096))) char trapframe[NPROC][PAGE_SIZE];
+__attribute__((aligned(4096))) char trapframe[NPROC][TRAP_PAGE_SIZE];
 
 extern char boot_stack_top[];
 struct proc *current_proc;
@@ -33,7 +34,7 @@ void proc_init(void)
 	for (p = pool; p < &pool[NPROC]; p++) {
 		p->state = UNUSED;
 		p->kstack = (uint64)kstack[p - pool];
-		p->ustack = (uint64)ustack[p - pool];
+		// p->ustack = (uint64)ustack[p - pool];
 		p->trapframe = (struct trapframe *)trapframe[p - pool];
 		/*
 		* LAB1: you may need to initialize your new fields of proc here

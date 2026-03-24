@@ -9,8 +9,8 @@ void loader_init();
 int run_all_app();
 
 #define BASE_ADDRESS (0x1000)
-#define MAX_APP_SIZE (0x20000)
-#define USER_STACK_SIZE (PAGE_SIZE)
+// #define MAX_APP_SIZE (0x20000)
+// #define USER_STACK_SIZE (PAGE_SIZE)
 #define USTACK_SIZE (PAGE_SIZE)
 #define KSTACK_SIZE (PAGE_SIZE)
 #define TRAP_PAGE_SIZE (PAGE_SIZE)
