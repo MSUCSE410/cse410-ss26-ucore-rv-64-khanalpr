@@ -15,7 +15,7 @@ void loader_init()
 	app_num = *app_info_ptr;
 	app_info_ptr++;
 	s = _app_names;
-	printf("app list:\n");
+	printf("app list:\n"); 
 	for (int i = 0; i < app_num; ++i) {
 		int len = strlen(s);
 		strncpy(names[i], (const char *)s, len);
@@ -77,6 +77,9 @@ int bin_loader(uint64 start, uint64 end, struct proc *p)
 	p->trapframe->epc = va_start;
 	p->max_page = PGROUNDUP(p->ustack + USTACK_SIZE - 1) / PAGE_SIZE;
 	p->state = RUNNABLE;
+	// My Changes (from project 1)
+	memset(p->syscall_times, 0, sizeof(p->syscall_times));
+		p->start_time = 0;
 	return 0;
 }
 
