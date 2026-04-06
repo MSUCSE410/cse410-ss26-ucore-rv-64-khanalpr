@@ -65,6 +65,11 @@ struct proc {
 	struct file *files[FD_BUFFER_SIZE];
 	unsigned int syscall_times[MAX_SYSCALL_NUM];
 	int start_time;
+
+	// Project 3 My Changes
+	// stride scheduling stuff
+	long long priority;   // bigger = more cpu time
+	uint64 stride;        // how far this proc has "walked" so far
 };
 
 int cpuid();
@@ -83,5 +88,9 @@ struct proc *allocproc();
 int fdalloc(struct file *);
 // swtch.S
 void swtch(struct context *, struct context *);
+
+// Project 3 My Changes
+int spawn(char *);
+long long set_priority(long long);
 
 #endif // PROC_H

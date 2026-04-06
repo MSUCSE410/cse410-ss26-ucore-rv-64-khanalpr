@@ -251,12 +251,21 @@ uint64 sys_wait(int pid, uint64 va)
 uint64 sys_spawn(uint64 va)
 {
 	// TODO: your job is to complete the sys call
-	return -1;
+	// return -1;
+	// Project 3 My Changes
+	struct proc *p = curr_proc();
+	char name[200];
+	// copying the filename string from user space
+	copyinstr(p->pagetable, name, va, 200);
+	debugf("sys_spawn %s\n", name);
+	return spawn(name);
 }
 
 uint64 sys_set_priority(long long prio){
     // TODO: your job is to complete the sys call
-    return -1;
+    // return -1;
+	// just delegating to the proc-layer function
+	return set_priority(prio);
 }
 
 
@@ -320,6 +329,10 @@ void syscall()
 	case SYS_munmap:
     	ret = sys_munmap(args[0], args[1]);
     	break;
+	// Project 3 My Changes	
+	case SYS_setpriority:
+		ret = sys_set_priority((long long)args[0]);
+		break;
 	default:
 		ret = -1;
 		errorf("unknown syscall %d", id);

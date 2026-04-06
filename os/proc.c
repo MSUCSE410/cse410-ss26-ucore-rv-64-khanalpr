@@ -6,6 +6,7 @@
 #include "queue.h"
 #include "timer.h"
 
+
 struct proc pool[NPROC];
 __attribute__((aligned(16))) char kstack[NPROC][PAGE_SIZE];
 __attribute__((aligned(4096))) char trapframe[NPROC][TRAP_PAGE_SIZE];
@@ -14,6 +15,11 @@ extern char boot_stack_top[];
 struct proc *current_proc;
 struct proc idle;
 struct queue task_queue;
+
+// Project 3 My Changes
+// BIG_STRIDE constant for stride scheduling.
+// priorities in tests are powers of 2, so 65536 works well here
+#define BIG_STRIDE 65536
 
 int threadid()
 {
@@ -93,8 +99,31 @@ found:
 	memset((void *)p->trapframe, 0, TRAP_PAGE_SIZE);
 	p->context.ra = (uint64)usertrapret;
 	p->context.sp = p->kstack + KSTACK_SIZE;
+
+	// Project 3 My Changes
+	// stride scheduling init, so every new proc starts fresh
+	p->priority = 16;  // default prio required by spec
+	p->stride = 0;     // haven't run at all yet
+
 	return p;
 }
+
+// Project 3 My Changes
+// Picking the RUNNABLE process with the smallest stride value.
+// using brute force search, returns NULL is no runnable
+static struct proc *stride_pick_next()
+{
+	struct proc *chosen = NULL;
+	for (struct proc *p = pool; p < &pool[NPROC]; p++) {
+		if (p->state != RUNNABLE)
+			continue;
+		if (chosen == NULL || p->stride < chosen->stride) {
+			chosen = p;
+		}
+	}
+	return chosen;
+}
+
 
 // Scheduler never returns.  It loops, doing:
 //  - choose a process to run.
@@ -118,13 +147,26 @@ void scheduler()
 		if(has_proc == 0) {
 			panic("all app are over!\n");
 		}*/
-		p = fetch_task();
+		// p = fetch_task();
+		// if (p == NULL) {
+		// 	panic("all app are over!\n");
+		// }
+		// tracef("swtich to proc %d", p - pool);
+
+		// Project 3 My Changes
+		// using stride algo to find who runs next
+		p = stride_pick_next();
 		if (p == NULL) {
 			panic("all app are over!\n");
 		}
-		tracef("swtich to proc %d", p - pool);
-		// My Changes (from project 1)
+		// advancing this proc's stride by its pass value
+		// pass = BIG_STRIDE / priority (higher prio = smaller pass = runs more often)
+		p->stride += BIG_STRIDE / p->priority;
 
+		tracef("swtich to proc %d (stride=%d prio=%d)", p - pool,
+		       p->stride, p->priority);
+	
+		// My Changes (from project 1)
 		if (p->start_time == 0) {
 			p->start_time = get_cycle() * 1000 / CPU_FREQ;
 		}
@@ -153,7 +195,9 @@ void sched()
 void yield()
 {
 	current_proc->state = RUNNABLE;
-	add_task(current_proc);
+	// Project 3 My Changes
+	// stride_pick_next() scans the pool directly so we don't need add_task here anymore
+	// add_task(current_proc);
 	sched();
 }
 
@@ -193,7 +237,9 @@ int fork()
 	np->trapframe->a0 = 0;
 	np->parent = p;
 	np->state = RUNNABLE;
-	add_task(np);
+	// Project 3 My Changes
+	// no add_task needed
+	// add_task(np);
 	return np->pid;
 }
 
@@ -208,6 +254,57 @@ int exec(char *name)
 	loader(id, p);
 	return 0;
 }
+
+// Project 3 My Changes
+// for spawn: creating a brand new child proc + loading the named program into it.
+// Unlike fork+exec, no memory copying happens at all
+// because allocproc gives a fresh page table, then we load the binary straight in
+int spawn(char *name)
+{
+	// first checking if the program actually exists
+	int app_id = get_id_by_name(name);
+	if (app_id < 0) {
+		// no such program
+		return -1;
+	}
+
+	struct proc *np = allocproc();
+	if (np == NULL) {
+		// pool is full or out of memory
+		return -1;
+	}
+
+	// loading the target program into the new proc's fresh address space.
+	// no copying from parent - np already has a clean pagetable from allocproc
+	if (loader(app_id, np) < 0) {
+		// loader failed, clean up
+		freeproc(np);
+		return -1;
+	}
+
+	// wire up parent-child relationship
+	np->parent = curr_proc();
+
+	// state is already set to RUNNABLE inside loader/bin_loader,
+	// might not need here..
+	np->state = RUNNABLE;
+
+	return np->pid;
+}
+
+// for set_priority: updating a process's scheduling priority
+// prio must be >= 2 returns prio on success, -1 on bad input
+long long set_priority(long long prio)
+{
+	// coz spec says valid range is [2, isize_max]
+	if (prio < 2) {
+		return -1;
+	}
+	struct proc *p = curr_proc();
+	p->priority = prio;
+	return prio;
+}
+
 
 int wait(int pid, int *code)
 {
@@ -235,7 +332,9 @@ int wait(int pid, int *code)
 			return -1;
 		}
 		p->state = RUNNABLE;
-		add_task(p);
+		// Project 3 My Changes
+		// no add_task needed
+		// add_task(p);
 		sched();
 	}
 }
