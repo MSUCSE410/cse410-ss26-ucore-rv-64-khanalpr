@@ -6,6 +6,7 @@
 
 #define NPROC (512)
 #define FD_BUFFER_SIZE (16)
+#define MAX_SYSCALL_NUM 500
 
 struct file;
 
@@ -31,6 +32,24 @@ struct context {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+// My changes - from project 1
+
+// My work
+typedef enum {
+	UnInit,
+	Ready,
+	TaskRunning,
+	Exited,
+} TaskStatus;
+
+// Mywork
+typedef struct {
+	TaskStatus status;
+	unsigned int syscall_times[MAX_SYSCALL_NUM];
+	int time;
+} TaskInfo;
+
+
 // Per-process state
 struct proc {
 	enum procstate state; // Process state
@@ -45,6 +64,12 @@ struct proc {
 	uint64 exit_code;
 	struct file *files
 		[FD_BUFFER_SIZE]; //File descriptor table, using to record the files opened by the process
+	unsigned int syscall_times[MAX_SYSCALL_NUM];
+	int start_time;
+		// Project 3 My Changes
+	// stride scheduling stuff
+	long long priority;   // bigger = more cpu time
+	uint64 stride;        // how far this proc has "walked" so far
 };
 
 int cpuid();
@@ -65,5 +90,10 @@ int init_stdio(struct proc *);
 int push_argv(struct proc *, char **);
 // swtch.S
 void swtch(struct context *, struct context *);
+
+// Project 3 My Changes
+int spawn(char *);
+long long set_priority(long long);
+
 
 #endif // PROC_H

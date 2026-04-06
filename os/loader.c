@@ -44,6 +44,9 @@ int bin_loader(struct inode *ip, struct proc *p)
 	p->trapframe->epc = va_start;
 	p->max_page = PGROUNDUP(p->ustack + USTACK_SIZE - 1) / PAGE_SIZE;
 	p->state = RUNNABLE;
+	// My Changes (from project 1)
+	memset(p->syscall_times, 0, sizeof(p->syscall_times));
+		p->start_time = 0;
 	return 0;
 }
 
