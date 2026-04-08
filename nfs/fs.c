@@ -205,6 +205,8 @@ uint ialloc(ushort type)
 	din.type = xshort(type);
 	din.size = xint(0);
 	// LAB4: You may want to init link count here
+	// Project 4 - my changes
+	din.nlink = xshort(1); // every new file starts with one hard link
 	winode(inum, &din);
 	return inum;
 }

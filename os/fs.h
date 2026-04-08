@@ -44,10 +44,13 @@ struct superblock {
 // On-disk inode structure
 struct dinode {
 	short type; // File type
-	short pad[3];
+	// short pad[3];
 	// LAB4: you can reduce size of pad array and add link count below,
 	//       or you can just regard a pad as link count.
 	//       But keep in mind that you'd better keep sizeof(dinode) unchanged
+	// Project 4 - my changes
+	short nlink;   // hard link count -- reusing one pad slot
+	short pad[2];  // still keeping total size same, just shrunk pad by 1
 	uint size; // Size of file (bytes)
 	uint addrs[NDIRECT + 1]; // Data block addresses
 };
@@ -72,8 +75,22 @@ struct dirent {
 	char name[DIRSIZ];
 };
 
+// file type constants used by sys_fstat
+// matching the specs
+#define STAT_FILE 0x100000
+#define STAT_DIR  0x040000
+
 // file.h
 struct inode;
+
+// what gets filled in by sys_fstat and copied to userspace
+typedef struct {
+	uint64 dev;    // always 0 in our impl
+	uint64 ino;    // inode number
+	uint32 mode;   // file type (STAT_FILE or STAT_DIR)
+	uint32 nlink;  // number of hard links
+	uint64 pad[7]; // compatibility padding, ignore
+} Stat;
 
 void fsinit();
 int dirlink(struct inode *, char *, uint);
@@ -92,4 +109,5 @@ int readi(struct inode *, int, uint64, uint, uint);
 int writei(struct inode *, int, uint64, uint, uint);
 void itrunc(struct inode *);
 int dirls(struct inode *);
+int dirunlink(struct inode *, char *);
 #endif //!__FS_H__

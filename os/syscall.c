@@ -342,19 +342,163 @@ uint64 sys_close(int fd)
 	return 0;
 }
 
+
+// Project 4 - my changes
+// sys_fstat - fill in a Stat struct for an open file descriptor
+// syscall id 80
 int sys_fstat(int fd,uint64 stat){
 	//TODO: your job is to complete the syscall
-	return -1;
+	// Project 4 My Changes
+	struct proc *p = curr_proc();
+
+	// validating fd range first
+	if (fd < 0 || fd >= FD_BUFFER_SIZE) {
+		errorf("sys_fstat: bad fd %d", fd);
+		return -1;
+	}
+
+	struct file *f = p->files[fd];
+	if (f == NULL || f->type != FD_INODE) {
+		errorf("sys_fstat: fd %d not open or not an inode", fd);
+		return -1;
+	}
+
+	// translating the user virtual address to a kernel-accessible one
+	Stat *kstat = (Stat *)useraddr(p->pagetable, stat);
+	if (kstat == 0) {
+		errorf("sys_fstat: bad stat address");
+		return -1;
+	}
+
+	// making sure we have fresh data from disk
+	ivalid(f->ip);
+
+	kstat->dev   = 0; // we only have one device, hardcoding 0
+	kstat->ino   = f->ip->inum;
+	kstat->nlink = f->ip->nlink;
+
+	// mapping our internal T_FILE/T_DIR to the values the test expects
+	if (f->ip->type == T_FILE)
+		kstat->mode = STAT_FILE;
+	else if (f->ip->type == T_DIR)
+		kstat->mode = STAT_DIR;
+	else
+		kstat->mode = 0;
+
+	// zero the padding, tests might check it
+	for (int idx = 0; idx < 7; idx++)
+		kstat->pad[idx] = 0;
+
+	return 0;
 }
 
+// Project 4 - my changes
+// sys_linkat - creating a hard link (newpath) pointing to the same inode as oldpath
+// syscall id 37
+// olddirfd/newdirfd/flags are always AT_FDCWD/0 in this lab, so we ignore them
 int sys_linkat(int olddirfd, uint64 oldpath, int newdirfd, uint64 newpath, uint64 flags){
 	//TODO: your job is to complete the syscall
-	return -1;
+	// Project 4 My Changes
+	struct proc *p = curr_proc();
+
+	// copying both path strings out of user memory
+	char old_name[DIRSIZ + 1];
+	char new_name[DIRSIZ + 1];
+
+	if (copyinstr(p->pagetable, old_name, oldpath, DIRSIZ + 1) < 0) {
+		errorf("sys_linkat: bad oldpath");
+		return -1;
+	}
+	if (copyinstr(p->pagetable, new_name, newpath, DIRSIZ + 1) < 0) {
+		errorf("sys_linkat: bad newpath");
+		return -1;
+	}
+
+	// linking a file to itself is an error per spec
+	if (strncmp(old_name, new_name, DIRSIZ) == 0) {
+		errorf("sys_linkat: old and new name are the same");
+		return -1;
+	}
+
+	// look up the source inode
+	struct inode *src = namei(old_name);
+	if (src == 0) {
+		errorf("sys_linkat: source file '%s' not found", old_name);
+		return -1;
+	}
+	ivalid(src);
+
+	// not able to hard-link a directory (would mess up the tree structure)
+	if (src->type == T_DIR) {
+		iput(src);
+		errorf("sys_linkat: cannot hard link a directory");
+		return -1;
+	}
+
+	// grabing root dir to write the new dirent into
+	struct inode *dp = root_dir();
+	ivalid(dp);
+
+	// dirlink checks for duplicate name internally and returns -1 if found
+	if (dirlink(dp, new_name, src->inum) < 0) {
+		iput(dp);
+		iput(src);
+		errorf("sys_linkat: dirlink failed (name collision?)");
+		return -1;
+	}
+
+	// bumping the link count and flush to disk
+	src->nlink++;
+	iupdate(src);
+
+	iput(dp);
+	iput(src);
+	return 0;
 }
 
+// Project 4 - my changes
+// sys_unlinkat - remove a directory entry; delete the file if nlink drops to 0
+// syscall id 35
+// dirfd and flags are always AT_FDCWD/0 in this lab, we ignore them
 int sys_unlinkat(int dirfd, uint64 name, uint64 flags){
 	//TODO: your job is to complete the syscall
-	return -1;
+	struct proc *p = curr_proc();
+
+	char fname[DIRSIZ + 1];
+	if (copyinstr(p->pagetable, fname, name, DIRSIZ + 1) < 0) {
+		errorf("sys_unlinkat: bad name pointer");
+		return -1;
+	}
+
+	// find the inode this name points to
+	struct inode *ip = namei(fname);
+	if (ip == 0) {
+		errorf("sys_unlinkat: file '%s' not found", fname);
+		return -1;
+	}
+	ivalid(ip);
+
+	struct inode *dp = root_dir();
+	ivalid(dp);
+
+	// remove the dirent from the directory
+	if (dirunlink(dp, fname) < 0) {
+		// shouldnt really happen since namei found it, but be safe
+		iput(dp);
+		iput(ip);
+		errorf("sys_unlinkat: dirunlink failed");
+		return -1;
+	}
+
+	iput(dp);
+
+	// decrement link count and persist it
+	ip->nlink--;
+	iupdate(ip);
+
+	// iput will call itrunc + free the inode if nlink==0 and ref drops to 0
+	iput(ip);
+	return 0;
 }
 
 extern char trap_page[];
@@ -416,6 +560,8 @@ void syscall()
 		break;
 	case SYS_unlinkat:
 	    ret = sys_unlinkat(args[0],args[1],args[2]);
+		// Project 4 my changes
+		break; 
 	case SYS_spawn:
 		ret = sys_spawn(args[0]);
 		break;
