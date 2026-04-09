@@ -66,6 +66,25 @@ struct proc {
 	// LAB5: (1) Define your variables for deadlock detect here.
 	//			 You may need a flag to record if detection enabled,
 	//       and some arrays for detection algorithm.
+
+	// Project 5 - my changes
+	// Flag to know if deadlock detection is on for this proc
+	int deadlock_detect_enabled;
+
+	// how many of each mutex/semaphore resource each thread currently holds
+	int mutex_alloc[NTHREAD][LOCK_POOL_SIZE];
+	int sem_alloc[NTHREAD][LOCK_POOL_SIZE];
+
+	// what each thread is currently waiting/requesting
+	// The Request matrix
+	int mutex_req[NTHREAD][LOCK_POOL_SIZE];
+	int sem_req[NTHREAD][LOCK_POOL_SIZE];
+
+	// available[j] = how many instances of resource j are free right now
+	// for mutex its always 0 or 1, semaphores can be more
+	int mutex_avail[LOCK_POOL_SIZE];
+	int sem_avail[LOCK_POOL_SIZE];
+
 };
 
 int cpuid();

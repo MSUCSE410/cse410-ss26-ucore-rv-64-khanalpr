@@ -306,3 +306,6 @@
 #define SYS_condvar_create 471
 #define SYS_condvar_signal 472
 #define SYS_condvar_wait 473
+
+// Project 5 - my changes
+#define SYS_enable_deadlock_detect 469

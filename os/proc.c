@@ -143,6 +143,15 @@ found:
 	p->next_semaphore_id = 0;
 	p->next_condvar_id = 0;
 	// LAB5: (1) you may initialize your new proc variables here
+	// Project 5 - my changes
+	// Making all zero for all the deadlock detection state
+	p->deadlock_detect_enabled = 0;
+	memset(p->mutex_alloc, 0, sizeof(p->mutex_alloc));
+	memset(p->sem_alloc,   0, sizeof(p->sem_alloc));
+	memset(p->mutex_req,   0, sizeof(p->mutex_req));
+	memset(p->sem_req,     0, sizeof(p->sem_req));
+	memset(p->mutex_avail, 0, sizeof(p->mutex_avail));
+	memset(p->sem_avail,   0, sizeof(p->sem_avail));
 	return p;
 }
 
